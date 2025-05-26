@@ -1,69 +1,100 @@
+# Talal Kheiry  
+# 05/06/2025  
+# Live BPM Detection Tool - with socket communication to Java frontend
+
 import aubio
 import pyaudio
-import numpy as np
+import numpy
 import keyboard
+import socket
+import json
 
-# Audio stream config
-buffer_size = 1024
-sample_format = pyaudio.paInt16
-channels = 1
-sample_rate = 44100
-chunk_duration = buffer_size / sample_rate  # seconds
-seconds_per_segment = 10
-frames_per_segment = int(sample_rate / buffer_size * seconds_per_segment)
+# ====== Config ======
 
-# Aubio config
-window_size = 1024
-hop_size = window_size // 2
+# Audio input settings
+BUFFER_SIZE = 1024
+SAMPLE_FORMAT = pyaudio.paInt16
+CHANNELS = 1
+SAMPLE_RATE = 44100
+SEGMENT_DURATION = 5
+FRAMES_PER_SEGMENT = int(SAMPLE_RATE / BUFFER_SIZE * SEGMENT_DURATION)
 
-# Initialize PyAudio and Aubio
+# Aubio tempo detection
+WINDOW_SIZE = 1024
+HOP_SIZE = WINDOW_SIZE // 2
+
+# Socket settings
+HOST = 'localhost'
+PORT = 12345
+
+# ====== Initialization ======  
+
+# Start socket server
+server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server_socket.bind((HOST, PORT))
+server_socket.listen(1)
+print(f"[Socket] Waiting for frontend connection on {HOST}:{PORT}...")
+conn, addr = server_socket.accept()
+print(f"[Socket] Connected to {addr}")
+
+# Start audio input stream
 audio_interface = pyaudio.PyAudio()
-stream = audio_interface.open(format=sample_format,
-                              channels=channels,
-                              rate=sample_rate,
+stream = audio_interface.open(format=SAMPLE_FORMAT,
+                              channels=CHANNELS,
+                              rate=SAMPLE_RATE,
                               input=True,
-                              frames_per_buffer=buffer_size)
+                              frames_per_buffer=BUFFER_SIZE)
 
-tempo_detector = aubio.tempo("default", window_size, hop_size, sample_rate)
+# Set up tempo detector
+tempo_detector = aubio.tempo("default", WINDOW_SIZE, HOP_SIZE, SAMPLE_RATE)
 bpm_log = []
 
-print("Listening... Press SPACE to stop.")
+print("Listening... Press SPACE to stop.\n")
+
+# ====== BPM Detection Loop ======
 
 try:
     while True:
-        segment_frames = []
-        print(f"Recording {seconds_per_segment}-second segment...")
+        print(f"Recording {SEGMENT_DURATION}-second segment...")
 
-        for x  in range(frames_per_segment):
+        segment_samples = []
+        for _ in range(FRAMES_PER_SEGMENT):
             if keyboard.is_pressed("space"):
                 raise KeyboardInterrupt
-            data = stream.read(buffer_size, exception_on_overflow=False)
-            samples = np.frombuffer(data, dtype=np.int16).astype(np.float32) / 32768.0
-            segment_frames.append(samples)
+            data = stream.read(BUFFER_SIZE, exception_on_overflow=False)
+            samples = numpy.frombuffer(data, dtype=numpy.int16).astype(numpy.float32) / 32768.0
+            segment_samples.append(samples)
 
-        combined_samples = np.concatenate(segment_frames)
+        combined_samples = numpy.concatenate(segment_samples)
         beat_times = []
 
-        for i in range(0, len(combined_samples), hop_size):
-            chunk = combined_samples[i:i + hop_size]
-            if len(chunk) < hop_size:
+        for i in range(0, len(combined_samples), HOP_SIZE):
+            chunk = combined_samples[i:i + HOP_SIZE]
+            if len(chunk) < HOP_SIZE:
                 break
             if tempo_detector(chunk):
                 beat_times.append(tempo_detector.get_last_s())
 
         if len(beat_times) > 1:
             intervals = [j - i for i, j in zip(beat_times[:-1], beat_times[1:])]
-            bpm = 60.0 / (sum(intervals) / len(intervals))
-            bpm = round(bpm, 2)
+            avg_interval = sum(intervals) / len(intervals)
+            bpm = round(60.0 / avg_interval, 2)
             bpm_log.append(bpm)
-            print(f"Estimated BPM: {bpm}")
+            print(f"Estimated BPM: {bpm}\n")
+
+            # Send bpm_log to frontend
+            msg = json.dumps(bpm) + "\n"  # add newline for framing
+            conn.sendall(msg.encode())
         else:
-            print("Not enough beats detected.")
+            print("Not enough beats detected.\n")
+
 except KeyboardInterrupt:
-    print("\nSpacebar pressed. Stopping...")
+    print("\nSpacebar pressed. Terminating BPM detection...")
 
 finally:
     stream.stop_stream()
     stream.close()
     audio_interface.terminate()
-    print("All BPMs recorded:", bpm_log)
+    conn.close()
+    server_socket.close()
+    print("Session ended. BPMs recorded:", bpm_log)
