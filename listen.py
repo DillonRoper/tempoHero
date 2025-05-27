@@ -16,7 +16,7 @@ BUFFER_SIZE = 1024
 SAMPLE_FORMAT = pyaudio.paInt16
 CHANNELS = 1
 SAMPLE_RATE = 44100
-SEGMENT_DURATION = 5
+SEGMENT_DURATION = 1
 FRAMES_PER_SEGMENT = int(SAMPLE_RATE / BUFFER_SIZE * SEGMENT_DURATION)
 
 # Aubio tempo detection
@@ -33,9 +33,7 @@ PORT = 12345
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server_socket.bind((HOST, PORT))
 server_socket.listen(1)
-print(f"[Socket] Waiting for frontend connection on {HOST}:{PORT}...")
 conn, addr = server_socket.accept()
-print(f"[Socket] Connected to {addr}")
 
 # Start audio input stream
 audio_interface = pyaudio.PyAudio()
@@ -48,8 +46,6 @@ stream = audio_interface.open(format=SAMPLE_FORMAT,
 # Set up tempo detector
 tempo_detector = aubio.tempo("default", WINDOW_SIZE, HOP_SIZE, SAMPLE_RATE)
 bpm_log = []
-
-print("Listening... Press SPACE to stop.\n")
 
 # ====== BPM Detection Loop ======
 
@@ -80,13 +76,10 @@ try:
             avg_interval = sum(intervals) / len(intervals)
             bpm = round(60.0 / avg_interval, 2)
             bpm_log.append(bpm)
-            print(f"Estimated BPM: {bpm}\n")
 
             # Send bpm_log to frontend
             msg = json.dumps(bpm) + "\n"  # add newline for framing
             conn.sendall(msg.encode())
-        else:
-            print("Not enough beats detected.\n")
 
 except KeyboardInterrupt:
     print("\nSpacebar pressed. Terminating BPM detection...")
