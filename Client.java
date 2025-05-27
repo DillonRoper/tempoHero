@@ -51,18 +51,16 @@ public class Client extends Application {
         }
 
         public void update() {
-            System.out.println("Update tick: userBpm = " + userBpm);
+            //System.out.println("Update tick: userBpm = " + userBpm);
+            if (userBpm > targetBpm*4-1) {
+                userBpm = userBpm/4;
+            } else if (userBpm > targetBpm*3-1) {
+                userBpm = userBpm/3;
+            } else if (userBpm > targetBpm*2-1) {
+                userBpm = userBpm/2;
+            }
             target.getData().add(new XYChart.Data<>(time, targetBpm));
             user.getData().add(new XYChart.Data<>(time, userBpm));
-            while (userBpm > targetBpm*2-10) {
-                if (userBpm > targetBpm*4-10) {
-                    userBpm = userBpm/4;
-                } else if (userBpm > targetBpm*3-10) {
-                    userBpm = userBpm/3;
-                } else if (userBpm > targetBpm*2) {
-                    userBpm = userBpm/2;
-                }
-            }
             if (time >= xAxis.getUpperBound() - 5) {
                 xAxis.setLowerBound(xAxis.getLowerBound() + 15);
                 xAxis.setUpperBound(xAxis.getUpperBound() + 15);
