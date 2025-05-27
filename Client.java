@@ -58,7 +58,7 @@ public class Client extends Application {
                 if (userBpm > targetBpm*4-10) {
                     userBpm = userBpm/4;
                 } else if (userBpm > targetBpm*3-10) {
-                    userBpm = userBpm/3
+                    userBpm = userBpm/3;
                 } else if (userBpm > targetBpm*2) {
                     userBpm = userBpm/2;
                 }
