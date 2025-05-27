@@ -1,3 +1,6 @@
+import java.io.*;
+import java.net.*;
+import java.util.Scanner;
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.Clip;
@@ -5,7 +8,6 @@ import javafx.animation.Animation;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.application.Application;
-import javafx.scene.shape.Circle;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Label;
@@ -28,16 +30,27 @@ import javafx.scene.chart.XYChart.Series;
 
 
 public class Client extends Application {
-    private int targetBpm;
-    private int userBpm = 0;
-    private int time = 0;
+    private static int targetBpm;
+    private static int userBpm = 0;
+    private static int time = 0;
     private XYChart.Series target = new XYChart.Series();
     private XYChart.Series user = new XYChart.Series();
     private Timeline metro;
     private Timeline update;
+    private NumberAxis xAxis;
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
         launch(args);
+        Runtime.getRuntime().exec("python listen.py");
+        Socket socket = new Socket("localhost", 12345);
+        BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream())); 
+        String line = in.readLine();
+        while (line != null) {
+            userBpm = Integer.parseInt(line);
+        }
+
+        in.close();
+        socket.close();        
     }
 
     public class Metronome {
@@ -61,11 +74,11 @@ public class Client extends Application {
 
         public void update() {
             target.getData().add(new XYChart.Data(time, targetBpm)); // add target data
-            user.getData().add(new XYChart.Data(time, 50)); // add user data
-            /*if (target.getData().size() > 60) {
-                removeDataItemFromDisplay(target, target.getData().remove(0));
-                removeDataItemFromDisplay(user, user.getData().remove(0));
-            }*/
+            user.getData().add(new XYChart.Data(time, userBpm)); // add user data
+            if (time >= xAxis.getUpperBound()-5) {
+                xAxis.setLowerBound(xAxis.getLowerBound()+15);
+                xAxis.setUpperBound(xAxis.getUpperBound()+15);
+            }
             time++;
         }
     }
@@ -92,8 +105,8 @@ public class Client extends Application {
         VBox.setVgrow(title, Priority.ALWAYS);
 
         // graph
-        NumberAxis xAxis = new NumberAxis();
-        NumberAxis yAxis = new NumberAxis();
+        xAxis = new NumberAxis(0, 30, 1);
+        NumberAxis yAxis = new NumberAxis(0, 120, 10);
         LineChart<Number,Number> chart = new LineChart<Number,Number>(xAxis, yAxis);
         xAxis.setLabel("Time (seconds)");
         yAxis.setLabel("Beats Per Minute");
@@ -125,17 +138,23 @@ public class Client extends Application {
 
         // changes bpm when someone hits enter on the field
         enterBpm.setOnAction(e -> {
-            targetBpm = Integer.parseInt(enterBpm.getText());
+            if (enterBpm.getText().equals("")) {
+                targetBpm = 0;
+            } else {
+                targetBpm = Integer.parseInt(enterBpm.getText());
+            }
+            
             double millis = 60000.0 / targetBpm;
             if (metro != null) metro.stop();
             metro = new Timeline(new KeyFrame(Duration.millis(millis), ev -> m.tick()));
             metro.setCycleCount(Animation.INDEFINITE);
             metro.play();
             update.stop();
-            update = new Timeline(new KeyFrame(Duration.millis(1000), ev -> m.update()));
-            update.setCycleCount(Animation.INDEFINITE);
-            update.play();
-
+            if (targetBpm > 0) {
+                update = new Timeline(new KeyFrame(Duration.millis(1000), ev -> m.update()));
+                update.setCycleCount(Animation.INDEFINITE);
+                update.play();
+            }
         });
 
         // starts the program
