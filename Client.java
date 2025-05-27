@@ -54,6 +54,9 @@ public class Client extends Application {
             System.out.println("Update tick: userBpm = " + userBpm);
             target.getData().add(new XYChart.Data<>(time, targetBpm));
             user.getData().add(new XYChart.Data<>(time, userBpm));
+            while (userBpm > yAxis.getUpperBound()) {
+                userBpm = userBpm/2;
+            }
             if (time >= xAxis.getUpperBound() - 5) {
                 xAxis.setLowerBound(xAxis.getLowerBound() + 15);
                 xAxis.setUpperBound(xAxis.getUpperBound() + 15);
@@ -171,6 +174,8 @@ public class Client extends Application {
                 update = new Timeline(new KeyFrame(Duration.millis(1000), ev -> m.update()));
                 update.setCycleCount(Animation.INDEFINITE);
                 update.play();
+                yAxis.setUpperBound(targetBpm+60);
+                yAxis.setLowerBound(targetBpm-60);
             }
         });
 
