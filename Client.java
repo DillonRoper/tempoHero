@@ -16,6 +16,7 @@ import javafx.scene.paint.Color;
 import javafx.geometry.Rectangle2D;
 import javafx.util.Duration;
 import javafx.scene.chart.*;
+import javafx.scene.control.Button;
 
 public class Client extends Application {
     private static int targetBpm;
@@ -26,6 +27,7 @@ public class Client extends Application {
     private Timeline metro;
     private Timeline update;
     private NumberAxis xAxis;
+    private static boolean muted = false;
 
     public static void main(String[] args) {
         launch(args); // GUI & socket are both started inside start()
@@ -43,11 +45,14 @@ public class Client extends Application {
         }
 
         public void tick() {
-            if (click.isRunning()) {
-                click.stop();
+            if (!muted) {
+                if (click.isRunning()) {
+                    click.stop();
+                }
+                click.setFramePosition(0);
+                click.start();
             }
-            click.setFramePosition(0);
-            click.start();
+            
         }
 
         public void update() {
@@ -187,6 +192,17 @@ public class Client extends Application {
                 }
             }
         });
+
+        Button muteButton = new Button("MUTE");
+        muteButton.setMinWidth(screenBounds.getWidth() / 30);
+        muteButton.setMinHeight(screenBounds.getWidth() / 30);
+        bpmBox.getChildren().add(muteButton);
+        bpmBox.setSpacing(10);
+        
+        muteButton.setOnAction(e -> {
+            muted = !muted;
+        });
+
 
         Scene scene = new Scene(box, screenBounds.getWidth() - 50, screenBounds.getHeight() - 100);
         primaryStage.setScene(scene);
